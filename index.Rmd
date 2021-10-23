@@ -19,7 +19,7 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Name and EID here
+### Kush Patel
 
 #### Introduction 
 
@@ -27,7 +27,9 @@ Paragraph or two introducing your datasets and variables, why they are interesti
 
 ```{R}
 # read your datasets in here, e.g., with read_csv()
-
+library(readr)
+new_cases <- read_csv("new_cases.csv")
+new_deaths <- read_csv("new_deaths.csv")
 ```
 
 #### Tidying: Reshaping
