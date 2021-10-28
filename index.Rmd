@@ -28,6 +28,8 @@ Paragraph or two introducing your datasets and variables, why they are interesti
 ```{R}
 # read your datasets in here, e.g., with read_csv()
 library(readr)
+library(dplyr)
+library(tidyverse)
 new_cases <- read_csv("new_cases.csv")
 new_deaths <- read_csv("new_deaths.csv")
 ```
@@ -44,9 +46,16 @@ If your datasets are tidy already, demonstrate that you can reshape data with pi
 #### Joining/Merging
 
 ```{R}
-# your joining code
+nrow(new_cases) #no. of rows in this dataset
+ncol(new_cases) 
+nrow(new_deaths)
+ncol(new_deaths)
+#full_join(new_cases, new_deaths, by ="date", suffix=c("_cases", "_deaths"))
+full_data <- full_join(new_cases, new_deaths, by ="date", suffix=c("_cases", "_deaths"))
+nrow(full_data)
+ncol(full_data)
+anti_join(new_cases, new_deaths, by = "date")
 
-# your joining code
 ```
 
 Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
@@ -54,11 +63,28 @@ Discussions of joining here. Feel encouraged to break up into more than once cod
 ####  Wrangling
 
 ```{R}
-# your wrangling code
+full_data %>% pivot_longer(cols=-c("date", "World_cases", "World_deaths"), names_to="name", values_to="value") %>% separate(name, sep = "_", into=c("Country","type")) %>% pivot_wider(names_from="type",values_from="value")
 
-# your wrangling code
+clean <- full_data %>% pivot_longer(cols=-c("date", "World_cases", "World_deaths"), names_to="name", values_to="value") %>% separate(name, sep = "_", into=c("Country","type")) %>% pivot_wider(names_from="type",values_from="value")
 
-# your wrangling code
+clean  %>% mutate(ratio = deaths/(cases+1))  %>% na.omit() %>% arrange(desc(ratio))
+                  
+clean %>% group_by(Country) %>% na.omit() %>% summarize(total_dealth = sum(deaths)) %>% arrange(desc(total_dealth))
+
+clean %>% filter(Country == "China") %>% select(date, Country, cases, deaths)
+
+clean %>% group_by(Country) %>% summarize(mean_cases = round(mean(cases, na.rm =T)), sd_cases = round(sd(cases, na.rm = T ))) 
+
+clean %>% summarize(mean_cases = round(mean(cases, na.rm =T)), n(), n_distinct(Country)) 
+clean %>% n_distinct()
+
+clean %>% filter(Country == "United Kingdom") %>%
+  mutate(Country2 = str_replace(Country, "United Kingdom", "UK"))
+
+
+clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+group_by(year, month, Country) %>% summarize(monthy_average = sum(cases, na.rm = T)) 
+
 ```
 
 Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
@@ -67,19 +93,50 @@ Your discussion of wrangling section here. Feel encouraged to break up into more
 #### Visualizing
 
 ```{R}
-# your plot 1
+clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T)) %>% arrange(desc(total_cases)) %>% slice(1:7) %>% ggplot(aes(Country,total_cases)) + geom_bar(stat="identity") 
+
+clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T)) %>% arrange(desc(total_cases)) %>% slice(1:7) %>% ggplot(aes(x=reorder(Country,total_cases), y=total_cases)) + geom_bar(stat="identity", fill = "blue") 
+
+
 ```
 
 Your discussion of plot 1
 
 ```{R}
-# your plot 2
+clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T), total_deaths=sum(deaths, na.rm = T)) %>% arrange(desc(total_cases)) %>% slice(1:10) %>%  ggplot(aes(total_cases, total_deaths)) + geom_point(aes(color=Country), size=4) 
+
+clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T), total_deaths=sum(deaths, na.rm = T)) %>% arrange(desc(total_cases)) %>% slice(5:15) %>%  ggplot(aes(total_cases, total_deaths)) + geom_point(aes(color=Country), size=4) 
 ```
 
 Your discussion of plot 2
 
 ```{R}
-# your plot 3
+clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+group_by(year, month, Country = "United States" ) %>% summarize(monthy_average_cases = round(mean(cases, na.rm = T))) %>% ggplot(aes(x= month, y=monthy_average_cases)) + geom_bar(stat="identity", fill = "pink") 
+
+ 
+
+
+Italy <- clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+group_by(year, month, Country = "Italy" ) %>% summarize(monthy_average_cases = round(mean(cases, na.rm = T)))
+  
+ggplot(data = US, aes(x= month, y=monthy_average_cases)) + geom_bar(stat="identity", fill = "pink") 
+
+ggplot(data = Italy, aes(x= month, y=monthy_average_cases)) + geom_point(size=4) + geom_line(stat="identity")
+
+df <- merge(US,Italy,by="month")
+
+ggplot(df, aes(x=month, y=monthy_average_cases.x)) +
+  geom_bar(position="stack",stat="identity", fill ="white") + 
+  geom_line(aes(x=month, y=monthy_average_cases.y)) + 
+  ylab("") + xlab("x")
+
+#--------
+US_Italy <- clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
+group_by(year, month, Country) %>% filter(Country == "United States" | Country == "Italy") %>% summarize(monthy_average_cases = round(mean(cases, na.rm = T))) 
+ 
+ ggplot(data = US_Italy, aes(x= month, y=monthy_average_cases, fill = Country)) + geom_bar(stat="identity") +facet_grid(Country~.)
+
 ```
 
 Your discussion of plot 3
