@@ -19,16 +19,25 @@ tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
 
 ## Data Wrangling, Exploration, Visualization
 
-### Kush Patel
+### Kush Patel, ksp946
 
 #### Introduction 
 
-Paragraph or two introducing your datasets and variables, why they are interesting to you, etc.
+We will be looking at two datasets. 
+
+1) new_cases: This contains data of the new daily COVID-19 cases of every countries around the world. The columns contains "date" which represents date corresponds to COVID cases, "world" which is sum of COVID cases in every country at given particular date. And after that all column represents particular countries. The raw contains individual date from 12/31/2019 - 11/29/2020, so around an year worth of data. 
+
+2) new_deaths: This contains data of the new daily COVID-19 deaths of every countries around the world. The columns contains "date" which represents date corresponds to COVID deaths, "world" which is sum of COVID deaths in every country at given particular date. And after that all column represents particular countries. The raw contains individual date from 12/31/2019 - 11/29/2020, so around an year worth of data. 
+
+I choose COVID-19 data because this pandemic have directly impacted every single individual in the world. It has permanently changed many things around us. I have see many COVID-19 data graph adn other figures within past 2 years but I have never analyse covid data myself. It will be interesting to see how many cool things I can do with this data set. As this dataset contains data from every country, I can compare and contrast any two or more countries aroudn the world. 
+Also I will be using #'s within the code to describe and answer what I am doing as there are many moving parts of this project. 
 
 ```{R}
 # read your datasets in here, e.g., with read_csv()
 library(readr)
 library(dplyr)
+library(kableExtra)
+library(stringr)
 library(tidyverse)
 new_cases <- read_csv("new_cases.csv")
 new_deaths <- read_csv("new_deaths.csv")
@@ -39,26 +48,35 @@ new_deaths <- read_csv("new_deaths.csv")
 If your datasets are tidy already, demonstrate that you can reshape data with pivot wider/longer here (e.g., untidy and then retidy). Alternatively, it may be easier to wait until the wrangling section so you can reshape your summary statistics. Note here if you are going to do this.
 
 ```{R}
-# your tidying code (if applicable; can also wait until wrangling section)
+# I will do tidying:reshaping of my dataset once I joined them together
 ```
 
     
 #### Joining/Merging
 
 ```{R}
-nrow(new_cases) #no. of rows in this dataset
-ncol(new_cases) 
-nrow(new_deaths)
-ncol(new_deaths)
-#full_join(new_cases, new_deaths, by ="date", suffix=c("_cases", "_deaths"))
-full_data <- full_join(new_cases, new_deaths, by ="date", suffix=c("_cases", "_deaths"))
-nrow(full_data)
-ncol(full_data)
-anti_join(new_cases, new_deaths, by = "date")
+nrow(new_cases)  #total no. of rows in this new_cases is 335
+ncol(new_cases)   #total no. of column in new_cases dataset is 216
+new_cases %>% n_distinct("date")   # there are 335 total unique IDs in new_cases dataset, as total unique IDs is equal to total number of rows, every rows in this dataset is unique
 
+
+nrow(new_deaths) #total no. of rows in new_deaths dataset is 335
+ncol(new_deaths) #total no. of column in new_deaths dataset is 216
+
+new_deaths %>% n_distinct("date") # there are 335 total unique IDs (date) in new_deaths dataset
+full_join(new_cases, new_deaths, by ="date", suffix=c("_cases", "_deaths"))
+full_data <- full_join(new_cases, new_deaths, by ="date", suffix=c("_cases", "_deaths"))
+nrow(full_data) #total no. of rows in joined dataset are 335
+ncol(full_data) #total no. of column in joined dataset are 431 
+anti_join(new_cases, new_deaths, by = "date")
+anti_join(new_deaths, new_cases, by = "date") #anti_join here tells us that there are no IDs that appear in one data but not in the others
 ```
 
-Discussions of joining here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+In both dataset (new_cases & new_deaths), the total number of observation were same and the unique ID (date) was also the same. So when I performed full_join to both data, there were no observation which were dropped. This is very important as now we can looked at full merged data with no observation lackiing from either datasets. 
+The total no. of rows in full_join dataset are 335 which is equal to total no. of rows in original datasets.
+Total no. of column in full_joint is 431 which is double (minus common ID variable) as compared to original dataset as a result of joint. 
+
+
 
 ####  Wrangling
 
@@ -67,84 +85,121 @@ full_data %>% pivot_longer(cols=-c("date", "World_cases", "World_deaths"), names
 
 clean <- full_data %>% pivot_longer(cols=-c("date", "World_cases", "World_deaths"), names_to="name", values_to="value") %>% separate(name, sep = "_", into=c("Country","type")) %>% pivot_wider(names_from="type",values_from="value")
 
-clean  %>% mutate(ratio = deaths/(cases+1))  %>% na.omit() %>% arrange(desc(ratio))
-                  
-clean %>% group_by(Country) %>% na.omit() %>% summarize(total_dealth = sum(deaths)) %>% arrange(desc(total_dealth))
+```
+Here, I used pivot_longer on full_data to tidy dataset and have each country their own rows. So the dataset became more longer and wider. Then I separated cases and deaths into their own separate categories. Finally, I used pivot_wider to assign cases and deaths values their own column. Now, the clean data looks much more organized and tidy. 
+The final clean dataset have column data, column for World_cases and World_deaths which are numerical and catergorical value in Country column. In total, this dataset have 6 variables and 72690 observations. 
 
+
+```{R}
+
+#the new column 'ratio' contains ratio of daily deaths to cases on a give date, we have used na.omit to omit any raws this do not have any data. Because of na.omit, we lost many raws, the clean dataset have 71690 obs, this one have 58685 obs. 
+clean  %>% mutate(ratio = deaths/(cases+1))  %>% na.omit() %>% arrange(desc(ratio))  
+     
+#Using group_by, summarize, and arrange core function to see which country have most total_death            
+clean %>% group_by(Country) %>% na.omit() %>% summarize(total_death = sum(deaths)) %>% arrange(desc(total_death))
+
+#Using filter and select core function to visualize only China's cases and dealths
 clean %>% filter(Country == "China") %>% select(date, Country, cases, deaths)
 
-clean %>% group_by(Country) %>% summarize(mean_cases = round(mean(cases, na.rm =T)), sd_cases = round(sd(cases, na.rm = T ))) 
+# Using Stringr function to detect name of country starting with letter C
+clean %>% distinct(Country) %>% filter(str_detect(Country, "[C]")) 
 
-clean %>% summarize(mean_cases = round(mean(cases, na.rm =T)), n(), n_distinct(Country)) 
-clean %>% n_distinct()
-
+#Using Stringr function to replace country name
 clean %>% filter(Country == "United Kingdom") %>%
   mutate(Country2 = str_replace(Country, "United Kingdom", "UK"))
 
+#Using 5 unique functions inside of summarize
+clean %>% group_by(Country) %>% summarize(Mean_cases = mean(cases, na.rm = T),
+                                          SD_cases = sd(cases, na.rm = T), 
+                                          Max_cases = max(cases, na.rm = T),
+                                          Median_cases = median(cases, na.rm = T),
+                                          Min_cases = min(cases, na.rm = T)) %>% slice(1:10)  %>% knitr::kable()
 
+clean %>% group_by(Country) %>% summarize(Mean_death = mean(deaths, na.rm = T),
+                                          SD_death = sd(deaths, na.rm = T), 
+                                          Max_death = max(deaths, na.rm = T),
+                                          Median_death = median(deaths, na.rm = T),
+                                          Min_deaths = min(deaths, na.rm = T)) %>% slice(1:10)  %>% knitr::kable()
+
+#as we can see here that the mean cases are significantly higher then median world cases, this tells that our data is skewed towards higher value
+clean %>% summarize(Mean_world_cases = mean(World_cases, na.rm = T),
+                                          SD_w_cases = sd(World_cases, na.rm = T), 
+                                          Max_w_cases = max(World_cases, na.rm = T),
+                                          Median_w_cases = median(World_cases, na.rm = T),
+                                          Min_w_cases = min(World_cases, na.rm = T)) %>% slice(1:10) 
+
+clean %>% summarize(Mean_world_deaths = mean(World_deaths, na.rm = T),
+                                          SD_w_death = sd(World_deaths, na.rm = T), 
+                                          Max_w_death = max(World_deaths, na.rm = T),
+                                          Median_w_death = median(World_deaths, na.rm = T),
+                                          Min_w_deaths = min(World_deaths, na.rm = T)) %>% slice(1:10) 
+                    
+                   
+#Total observation in categorical variable
+clean %>% group_by(Country) %>% summarize(total_obs = n())
+
+#overall mean and sd cases of COVID based on country 
+clean %>% group_by(Country) %>% summarize(mean_cases = round(mean(cases, na.rm =T)), sd_cases = round(sd(cases, na.rm = T ))) 
+
+#how many distinct countries and how many observations are there 
+clean %>% summarize(mean_cases = round(mean(cases, na.rm =T)), n(), n_distinct(Country)) 
+
+
+#monthly average of COVID cases based on country
 clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
 group_by(year, month, Country) %>% summarize(monthy_average = sum(cases, na.rm = T)) 
 
 ```
 
-Your discussion of wrangling section here. Feel encouraged to break up into more than once code chunk and discuss each in turn.
+Data wrangling can be used to extract any particular information from the table. For intense, I can arrange countries by total number of covid death. From the code I see that US is no. 1 and UK is no.5 when comes to covid deaths. I can also filter out specific country I am looking for. I filtered out China to looked at it cases and covid deaths. Next, I used Stringr function to replace the name of Country. Summarized function can be used to find statistical summarary of data including mean, median, max, min, and sd. Using n_distinct function under summarized, I found out how many distint countries are there in my dataset, here I had 214 distinct countries. Lastly, I computed monthly covid cases average of all countries, it help to better visualized which month was worst and which was better. 
+
 
 
 #### Visualizing
 
 ```{R}
-clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T)) %>% arrange(desc(total_cases)) %>% slice(1:7) %>% ggplot(aes(Country,total_cases)) + geom_bar(stat="identity") 
 
-clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T)) %>% arrange(desc(total_cases)) %>% slice(1:7) %>% ggplot(aes(x=reorder(Country,total_cases), y=total_cases)) + geom_bar(stat="identity", fill = "blue") 
+
+clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T), sd = sd(cases, na.rm = T)) %>% arrange(desc(total_cases)) %>% slice(1:7) %>% ggplot(aes(x=reorder(Country,total_cases), y=total_cases, fill = Country)) + geom_bar(stat="identity") +theme(axis.text.x = element_text(angle=45, hjust=1),legend.position="none")+ ggtitle("Top 7 countries with highest COVID cases")+xlab("Country")+ ylab("Total cases") 
 
 
 ```
 
-Your discussion of plot 1
+This is the bar graph of top seven countries in the world when comes to total COVID cases. We have name of country on x-axis and total cases on y-axis. As we can see from the graph US has highest COVID cases followed by India and Brazil. One thing to keep in note that this is not entire covid data, this data is only from Dec 2019 to Nov 2020, so any cases after that date have not been recorded. One of the other useful graph besides this would be cases by capita because that will give accurate representation of cases compared to countries population.
 
 ```{R}
-clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T), total_deaths=sum(deaths, na.rm = T)) %>% arrange(desc(total_cases)) %>% slice(1:10) %>%  ggplot(aes(total_cases, total_deaths)) + geom_point(aes(color=Country), size=4) 
+#plot A
+clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T), total_deaths=sum(deaths, na.rm = T)) %>% arrange(desc(total_cases)) %>% slice(1:10) %>%  ggplot(aes(total_cases, total_deaths)) + geom_point(aes(color=Country), size=4, alpha = .5) + theme_grey() + ggtitle("Scatterplot ")+ xlab("Total Cases") + ylab("Total Deaths")
 
-clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T), total_deaths=sum(deaths, na.rm = T)) %>% arrange(desc(total_cases)) %>% slice(5:15) %>%  ggplot(aes(total_cases, total_deaths)) + geom_point(aes(color=Country), size=4) 
+#plot B
+clean %>% group_by(Country) %>% summarize(total_cases=sum(cases, na.rm=T), total_deaths=sum(deaths, na.rm = T)) %>% arrange(desc(total_cases)) %>% slice(5:15) %>%  ggplot(aes(total_cases, total_deaths)) + geom_point(aes(color=Country), size=4, alpha = .5) + theme_grey() + ggtitle("Scatterplot ")+ xlab("Total Cases") + ylab("Total Deaths")
 ```
 
-Your discussion of plot 2
+Plot A shows scatterplots between total cases and total deaths of top 10 countries with highest cases. As we can see that US, Inida, and Brazil stood apart in the graph but it is very hard to tell the difference between rest of the countries. 
+
+So for plot B, we took scatterplots between total cases and total dealth of top 5 to 15 countries, since it will be easier visually to compare them. From graph we see there is significant distinction between point of France and Mexico. France have high covid cases but low covid deaths, which tells that France covid mortality rate is low compared to average countries. This might be because of better hospitalization or any other reasons. On the other hand Mexico have low covid cases but realievely high covid death, which full Mexico higher in term of covid mortality. 
 
 ```{R}
-clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
-group_by(year, month, Country = "United States" ) %>% summarize(monthy_average_cases = round(mean(cases, na.rm = T))) %>% ggplot(aes(x= month, y=monthy_average_cases)) + geom_bar(stat="identity", fill = "pink") 
 
+
+ US_Italy <- clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>% 
+  group_by(year, month, Country) %>% filter(Country == "United States" | Country == "Italy")
  
+#plot C
+ ggplot(data = US_Italy, aes(x= month, y=cases, fill = Country)) + geom_bar(stat="summary")+
+   geom_errorbar(stat="summary") +facet_grid(Country~.) + theme_linedraw()
 
-
-Italy <- clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
-group_by(year, month, Country = "Italy" ) %>% summarize(monthy_average_cases = round(mean(cases, na.rm = T)))
-  
-ggplot(data = US, aes(x= month, y=monthy_average_cases)) + geom_bar(stat="identity", fill = "pink") 
-
-ggplot(data = Italy, aes(x= month, y=monthy_average_cases)) + geom_point(size=4) + geom_line(stat="identity")
-
-df <- merge(US,Italy,by="month")
-
-ggplot(df, aes(x=month, y=monthy_average_cases.x)) +
-  geom_bar(position="stack",stat="identity", fill ="white") + 
-  geom_line(aes(x=month, y=monthy_average_cases.y)) + 
-  ylab("") + xlab("x")
-
-#--------
-US_Italy <- clean %>% mutate(month = format(date, "%m"), year = format(date, "%Y")) %>%
-group_by(year, month, Country) %>% filter(Country == "United States" | Country == "Italy") %>% summarize(monthy_average_cases = round(mean(cases, na.rm = T))) 
- 
- ggplot(data = US_Italy, aes(x= month, y=monthy_average_cases, fill = Country)) + geom_bar(stat="identity") +facet_grid(Country~.)
-
+#plot D
+ ggplot(data = US_Italy, aes(x= month, y=cases, fill = Country)) + geom_bar(stat="summary")+
+   geom_errorbar(stat="summary") +facet_grid(Country~., scales = "free_y") + theme_linedraw()
 ```
 
-Your discussion of plot 3
+Plot C consists of bar graph of average-monthly covid cases in Italy and United States. The x-axis have months, months 1-11 is of year 2020 and month 12 is from year 2019, it is just the way data was collected. There is also error bar on top of every bar which shows standard deviation of monthly cases. It gives visual representation of monthly covid cases of US compared to Italy. In US, the first wave of covid was peaked around month of July and second wave peaked in November. In Italy, there was high period in March and April 2020 (this was around the time when whole world was watching Italy going to lockdown), later in the year, the second time cases really starting to rise was in October and November. Also note that the y-axis scale on both graph is same, so it help to accurately visualized the difference. 
+
+Plot D consist of same information, but this time we have different value for y-axis. See how this graph looks very different then previous graph, although it is same data. This can be potentially misleading as viewers thinks that in November cases in US and Italy are almost same but the reality is very different. This technique of misleading is widely used by news channel to influence views of people. This is also the reason why the axis in graph should be clearly labal. 
+
 
 #### Concluding Remarks
 
-If any!
-
-
-
+Using data wrangling, exploration, and visualization we can compare and contract the handling of COVID pandemic of different countries or same country over period of time. We can also visualized when was the peak of COVID in particular country and how long it took to come back to average cases. We can perform countless number of functions and built various graph using just on full_joint dataset. In conclusion overall COVID pandemic had two waves between the period Dec 2019 and Nov 2020, first wave was around summer when many people were desperate to go in public places after months of lockdown and second wave was during the ending of year 2020. One of the downfall of this type of covid data might be that not all countires uses same matrix to record the cases, and many times it happens that a country does not reports all covid cases, so it can be hard to compare real impact of covid as the number can be way more higher. 
 

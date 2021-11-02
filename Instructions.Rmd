@@ -169,7 +169,7 @@ Prerequisite: Finding appropriate data from at least two sources per the instruc
 cd ~/project1 #cd to your project1 directory
 git add .
 git commit -m "message"
-git remote add origin https://github.com/YOUR_USERNAME/project1.git
+git remote set-url origin https://github.com/YOUR_USERNAME/project1.git
 git push origin main
 ```
 
